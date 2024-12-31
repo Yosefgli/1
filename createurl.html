@@ -72,9 +72,9 @@
         <button onclick="copyToClipboard()">העתק קישור</button>
     </div>
 
-    <script src="https://apis.google.com/js/api.js"></script>
     <script>
-        const SHEET_ID = '1wFv3BQhWQqDp2AjbGwI-p6ldO3okR8xJChf8MwGLfN4';
+        // החלף את ה-URL הזה עם ה-URL של ה-Web App שקיבלת
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzj5eYTd-X8B_tzkJGYgvsdqhqX4d66Mbkgp16N5RuZTlLvc6IcLj-QgE4KUKDu45J5WQ/exec';
         const BASE_URL = 'https://yosefgli.github.io/url-shortener?';
         
         async function checkSlug() {
@@ -88,13 +88,9 @@
             document.getElementById('slugStatus').textContent = 'בודק סיומת...';
             
             try {
-                // Call Google Sheets API to check if slug exists
-                const response = await gapi.client.sheets.spreadsheets.values.get({
-                    spreadsheetId: SHEET_ID,
-                    range: 'Sheet1!B:B'
-                });
-                
-                const exists = response.result.values?.some(row => row[0] === slug);
+                const response = await fetch(`${SCRIPT_URL}?action=checkSlug`);
+                const data = await response.json();
+                const exists = data.slugs.includes(slug);
                 
                 if (exists) {
                     document.getElementById('slugStatus').textContent = 'סיומת תפוסה';
@@ -121,19 +117,22 @@
             }
             
             try {
-                // Add new row to Google Sheet
-                await gapi.client.sheets.spreadsheets.values.append({
-                    spreadsheetId: SHEET_ID,
-                    range: 'Sheet1!A:B',
-                    valueInputOption: 'RAW',
-                    resource: {
-                        values: [[longUrl, slug]]
-                    }
+                const response = await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        longUrl: longUrl,
+                        slug: slug
+                    })
                 });
                 
-                const shortUrl = BASE_URL + slug;
-                document.getElementById('shortUrl').value = shortUrl;
-                document.getElementById('result').style.display = 'block';
+                const data = await response.json();
+                if (data.success) {
+                    const shortUrl = BASE_URL + slug;
+                    document.getElementById('shortUrl').value = shortUrl;
+                    document.getElementById('result').style.display = 'block';
+                } else {
+                    alert('שגיאה ביצירת הקישור המקוצר');
+                }
             } catch (error) {
                 alert('שגיאה ביצירת הקישור המקוצר');
                 console.error('Error:', error);
@@ -146,14 +145,6 @@
             document.execCommand('copy');
             alert('הקישור הועתק ללוח');
         }
-        
-        // Initialize Google Sheets API
-        gapi.load('client', async () => {
-            await gapi.client.init({
-                apiKey: 'AIzaSyC_UxO6u2GxTG7qILNhboLCC67bjVqWP2E',
-                discoveryDocs: ['https://sheets.googleapis.com/$discovery/rest?version=v4']
-            });
-        });
     </script>
 </body>
 </html>
