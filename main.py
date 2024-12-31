@@ -11,7 +11,7 @@ load_dotenv()
 app = FastAPI()
 
 # התחברות ל-MongoDB
-MONGO_URI = os.getenv('MONGO_URI')
+MONGO_URI = os.getenv('mongodb+srv://url:<db_url>@cluster0.unhrr.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0')
 client = AsyncIOMotorClient(MONGO_URI)
 db = client.url_shortener
 urls_collection = db.urls
