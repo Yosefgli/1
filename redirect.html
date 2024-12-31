@@ -1,44 +1,61 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Redirect</title>
+    <meta charset="UTF-8">
+    <title>מעביר...</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding: 20px;
+        }
+        .loader {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
 </head>
 <body>
-  <script>
-    const urlParams = new URLSearchParams(window.location.search);
-    const shortSuffix = urlParams.get('short');
-    const sheetId = '1wFv3BQhWQqDp2AjbGwI-p6ldO3okR8xJChf8MwGLfN4';
-    const apiKey = 'AIzaSyC_UxO6u2GxTG7qILNhboLCC67bjVqWP2E'; // Replace with your API key
-    const baseUrl = 'https://sheets.googleapis.com/v4/spreadsheets/';
+    <div class="loader"></div>
+    <p>מעביר לדף היעד...</p>
 
-    async function redirectToOriginalUrl(suffix) {
-      const url = `${baseUrl}${sheetId}/values/B:B?key=${apiKey}`;
-      const response = await fetch(url);
-      const data = await response.json();
-
-      const suffixes = data.values ? data.values.flat() : [];
-      const index = suffixes.indexOf(suffix);
-
-      if (index !== -1) {
-        const originalUrlUrl = `${baseUrl}${sheetId}/values/A:A?key=${apiKey}`;
-        const originalResponse = await fetch(originalUrlUrl);
-        const originalData = await originalResponse.json();
-        const originalUrls = originalData.values ? originalData.values.flat() : [];
-
-        const originalUrl = originalUrls[index];
-        window.location.href = originalUrl;
-      } else {
-        document.body.innerHTML = '<h1>404 - URL Not Found</h1>';
-      }
-    }
-
-    if (shortSuffix) {
-      redirectToOriginalUrl(shortSuffix);
-    } else {
-      document.body.innerHTML = '<h1>Invalid Request</h1>';
-    }
-  </script>
+    <script>
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzj5eYTd-X8B_tzkJGYgvsdqhqX4d66Mbkgp16N5RuZTlLvc6IcLj-QgE4KUKDu45J5WQ/exec';
+        
+        async function redirect() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const slug = urlParams.get('short');
+            
+            if (!slug) {
+                document.body.innerHTML = 'קישור לא תקין';
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${SCRIPT_URL}?slug=${slug}`);
+                const data = await response.json();
+                
+                if (data.longUrl) {
+                    window.location.href = data.longUrl;
+                } else {
+                    document.body.innerHTML = 'קישור לא נמצא';
+                }
+            } catch (error) {
+                document.body.innerHTML = 'שגיאה בהעברה';
+                console.error('Error:', error);
+            }
+        }
+        
+        redirect();
+    </script>
 </body>
 </html>
