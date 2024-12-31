@@ -3,115 +3,112 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Create URL</title>
+  <title>URL Shortener</title>
   <style>
     body {
       font-family: Arial, sans-serif;
-      margin: 20px;
+      text-align: center;
+      margin: 50px;
     }
-    .form-group {
-      margin-bottom: 15px;
+    input, button {
+      margin: 10px;
+      padding: 10px;
+      font-size: 16px;
     }
-    .status {
-      margin-top: 5px;
-      font-size: 14px;
-    }
-    .success {
-      color: green;
-    }
-    .error {
-      color: red;
+    #result {
+      margin-top: 20px;
+      font-weight: bold;
     }
   </style>
 </head>
 <body>
-  <h1>Create URL</h1>
-  <div class="form-group">
-    <label for="originalUrl">Enter URL:</label>
-    <input type="text" id="originalUrl" placeholder="https://example.com">
+  <h1>URL Shortener</h1>
+  <div>
+    <input type="text" id="originalUrl" placeholder="Enter URL to shorten">
   </div>
-  <div class="form-group">
-    <label for="shortSuffix">Choose Short Suffix:</label>
-    <input type="text" id="shortSuffix" placeholder="shortname">
-    <div class="status" id="suffixStatus"></div>
+  <div>
+    <input type="text" id="suffix" placeholder="Choose a suffix">
+    <button id="checkSuffix">Check Suffix</button>
   </div>
-  <button id="checkSuffixButton">Check Suffix</button>
-  <br><br>
-  <button id="createUrlButton" disabled>Create Short URL</button>
-  <div id="result" class="form-group"></div>
+  <div id="suffixStatus"></div>
+  <div>
+    <button id="createShortUrl" disabled>Create Short URL</button>
+  </div>
+  <div id="result"></div>
 
   <script>
-    const sheetId = '1wFv3BQhWQqDp2AjbGwI-p6ldO3okR8xJChf8MwGLfN4';
-    const apiKey = 'AIzaSyC_UxO6u2GxTG7qILNhboLCC67bjVqWP2E'; // Replace with your API key
-    const baseUrl = 'https://sheets.googleapis.com/v4/spreadsheets/';
+    const apiKey = "AIzaSyC_UxO6u2GxTG7qILNhboLCC67bjVqWP2E";
+    const sheetId = "1wFv3BQhWQqDp2AjbGwI-p6ldO3okR8xJChf8MwGLfN4";
+    const baseUrl = "https://sheets.googleapis.com/v4/spreadsheets/";
 
-    const originalUrlInput = document.getElementById('originalUrl');
-    const shortSuffixInput = document.getElementById('shortSuffix');
-    const suffixStatus = document.getElementById('suffixStatus');
-    const checkSuffixButton = document.getElementById('checkSuffixButton');
-    const createUrlButton = document.getElementById('createUrlButton');
-    const resultDiv = document.getElementById('result');
+    const originalUrlInput = document.getElementById("originalUrl");
+    const suffixInput = document.getElementById("suffix");
+    const checkSuffixButton = document.getElementById("checkSuffix");
+    const createShortUrlButton = document.getElementById("createShortUrl");
+    const suffixStatusDiv = document.getElementById("suffixStatus");
+    const resultDiv = document.getElementById("result");
 
-    let suffixIsValid = false;
-
-    async function checkSuffixAvailability(suffix) {
-      suffixStatus.textContent = 'Checking suffix...';
-      suffixStatus.className = '';
-
-      const url = `${baseUrl}${sheetId}/values/B:B?key=${apiKey}`;
-      const response = await fetch(url);
-      const data = await response.json();
-
-      const existingSuffixes = data.values ? data.values.flat() : [];
-      if (existingSuffixes.includes(suffix)) {
-        suffixStatus.textContent = 'Suffix is already taken.';
-        suffixStatus.className = 'status error';
-        suffixIsValid = false;
-      } else {
-        suffixStatus.textContent = 'Suffix is available!';
-        suffixStatus.className = 'status success';
-        suffixIsValid = true;
+    checkSuffixButton.addEventListener("click", async () => {
+      const suffix = suffixInput.value.trim();
+      if (!suffix) {
+        suffixStatusDiv.textContent = "Please enter a suffix.";
+        return;
       }
+      suffixStatusDiv.textContent = "Checking suffix...";
+      
+      const rangeUrl = `${baseUrl}${sheetId}/values/B:B?key=${apiKey}`;
+      try {
+        const response = await fetch(rangeUrl);
+        if (!response.ok) {
+          throw new Error(`Error: ${response.status}`);
+        }
+        const data = await response.json();
+        const suffixes = data.values ? data.values.flat() : [];
+        if (suffixes.includes(suffix)) {
+          suffixStatusDiv.textContent = "Suffix is taken. Try another.";
+          createShortUrlButton.disabled = true;
+        } else {
+          suffixStatusDiv.textContent = "Suffix is available!";
+          createShortUrlButton.disabled = false;
+        }
+      } catch (error) {
+        console.error("Error checking suffix:", error);
+        suffixStatusDiv.textContent = "Error checking suffix.";
+      }
+    });
 
-      createUrlButton.disabled = !suffixIsValid;
-    }
-
-    async function createShortUrl(originalUrl, suffix) {
+    createShortUrlButton.addEventListener("click", async () => {
+      const originalUrl = originalUrlInput.value.trim();
+      const suffix = suffixInput.value.trim();
+      if (!originalUrl || !suffix) {
+        resultDiv.textContent = "Please provide both a URL and a suffix.";
+        return;
+      }
       const appendUrl = `${baseUrl}${sheetId}/values/A1:B1:append?valueInputOption=RAW&key=${apiKey}`;
       const body = {
         values: [[originalUrl, suffix]],
       };
-
-      const response = await fetch(appendUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-
-      if (response.ok) {
+      try {
+        const response = await fetch(appendUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        if (!response.ok) {
+          const errorData = await response.json();
+          console.error("Error adding to Google Sheets:", errorData);
+          resultDiv.textContent = "Error creating short URL. Check console for details.";
+          return;
+        }
         const shortUrl = `https://yosefgli.github.io/url-shortener?${suffix}`;
         resultDiv.innerHTML = `
           <p>Short URL created successfully:</p>
           <input type="text" value="${shortUrl}" readonly>
           <button onclick="navigator.clipboard.writeText('${shortUrl}')">Copy</button>
         `;
-      } else {
-        resultDiv.textContent = 'Error creating short URL.';
-      }
-    }
-
-    checkSuffixButton.addEventListener('click', () => {
-      const suffix = shortSuffixInput.value.trim();
-      if (suffix) {
-        checkSuffixAvailability(suffix);
-      }
-    });
-
-    createUrlButton.addEventListener('click', () => {
-      const originalUrl = originalUrlInput.value.trim();
-      const suffix = shortSuffixInput.value.trim();
-      if (originalUrl && suffix && suffixIsValid) {
-        createShortUrl(originalUrl, suffix);
+      } catch (error) {
+        console.error("Unexpected error:", error);
+        resultDiv.textContent = "Unexpected error occurred.";
       }
     });
   </script>
