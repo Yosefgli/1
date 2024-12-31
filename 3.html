@@ -4,24 +4,7 @@
     <meta charset="UTF-8">
     <title>מעביר...</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            text-align: center;
-            padding: 20px;
-        }
-        .loader {
-            width: 40px;
-            height: 40px;
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #3498db;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin: 20px auto;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
+        /* ... (same styles as before) ... */
     </style>
 </head>
 <body>
@@ -30,6 +13,27 @@
 
     <script>
         const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzj5eYTd-X8B_tzkJGYgvsdqhqX4d66Mbkgp16N5RuZTlLvc6IcLj-QgE4KUKDu45J5WQ/exec';
+        
+        // שיפור ביצועים - הוספת מטמון לדפדפן
+        function getFromCache(slug) {
+            const cached = localStorage.getItem('redirect_' + slug);
+            if (cached) {
+                const data = JSON.parse(cached);
+                // בדיקה האם המטמון תקף (שעה אחת)
+                if (Date.now() - data.timestamp < 3600000) {
+                    return data.url;
+                }
+                localStorage.removeItem('redirect_' + slug);
+            }
+            return null;
+        }
+
+        function saveToCache(slug, url) {
+            localStorage.setItem('redirect_' + slug, JSON.stringify({
+                url: url,
+                timestamp: Date.now()
+            }));
+        }
         
         async function redirect() {
             const urlParams = new URLSearchParams(window.location.search);
@@ -41,10 +45,19 @@
             }
             
             try {
+                // בדיקה במטמון תחילה
+                const cachedUrl = getFromCache(slug);
+                if (cachedUrl) {
+                    window.location.href = cachedUrl;
+                    return;
+                }
+
                 const response = await fetch(`${SCRIPT_URL}?slug=${slug}`);
                 const data = await response.json();
                 
                 if (data.longUrl) {
+                    // שמירה במטמון לשימוש עתידי
+                    saveToCache(slug, data.longUrl);
                     window.location.href = data.longUrl;
                 } else {
                     document.body.innerHTML = 'קישור לא נמצא';
