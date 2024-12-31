@@ -1,116 +1,89 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="he">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>URL Shortener</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      text-align: center;
-      margin: 50px;
-    }
-    input, button {
-      margin: 10px;
-      padding: 10px;
-      font-size: 16px;
-    }
-    #result {
-      margin-top: 20px;
-      font-weight: bold;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>בדיקת סיומת והכנסת נתונים</title>
 </head>
 <body>
-  <h1>URL Shortener</h1>
-  <div>
-    <input type="text" id="originalUrl" placeholder="Enter URL to shorten">
-  </div>
-  <div>
-    <input type="text" id="suffix" placeholder="Choose a suffix">
-    <button id="checkSuffix">Check Suffix</button>
-  </div>
-  <div id="suffixStatus"></div>
-  <div>
-    <button id="createShortUrl" disabled>Create Short URL</button>
-  </div>
-  <div id="result"></div>
+    <h1>הכנסת קישור וסיומת</h1>
 
-  <script>
-    const apiKey = "AIzaSyC_UxO6u2GxTG7qILNhboLCC67bjVqWP2E";
-    const sheetId = "1wFv3BQhWQqDp2AjbGwI-p6ldO3okR8xJChf8MwGLfN4";
-    const baseUrl = "https://sheets.googleapis.com/v4/spreadsheets/";
+    <!-- ריבועים -->
+    <div>
+        <input type="text" id="linkInput" placeholder="הכנס קישור" style="width: 300px; height: 40px; margin: 10px;">
+    </div>
+    
+    <div>
+        <input type="text" id="suffixInput" placeholder="הכנס סיומת" style="width: 300px; height: 40px; margin: 10px;">
+    </div>
 
-    const originalUrlInput = document.getElementById("originalUrl");
-    const suffixInput = document.getElementById("suffix");
-    const checkSuffixButton = document.getElementById("checkSuffix");
-    const createShortUrlButton = document.getElementById("createShortUrl");
-    const suffixStatusDiv = document.getElementById("suffixStatus");
-    const resultDiv = document.getElementById("result");
+    <button onclick="checkAndSubmit()">בדוק והכנס</button>
 
-    checkSuffixButton.addEventListener("click", async () => {
-      const suffix = suffixInput.value.trim();
-      if (!suffix) {
-        suffixStatusDiv.textContent = "Please enter a suffix.";
-        return;
-      }
-      suffixStatusDiv.textContent = "Checking suffix...";
-      
-      const rangeUrl = `${baseUrl}${sheetId}/values/B:B?key=${apiKey}`;
-      try {
-        const response = await fetch(rangeUrl);
-        if (!response.ok) {
-          throw new Error(`Error: ${response.status}`);
+    <script>
+        const spreadsheetId = '1wFv3BQhWQqDp2AjbGwI-p6ldO3okR8xJChf8MwGLfN4';
+        const sheetName = 'גיליון1';
+
+        // הפונקציה שתבצע את הבדיקה וההכנסה
+        async function checkAndSubmit() {
+            const link = document.getElementById('linkInput').value;
+            const suffix = document.getElementById('suffixInput').value;
+            
+            if (!link || !suffix) {
+                alert('נא למלא את כל השדות!');
+                return;
+            }
+
+            // שלב 1: קבלת נתונים מהגוגל שיטס
+            const isSuffixPresent = await checkSuffixInSheet(suffix);
+            
+            if (isSuffixPresent) {
+                alert('הסיומת כבר קיימת בגוגל שיטס!');
+                return;
+            }
+
+            // שלב 2: אישור והכנסת הנתונים
+            const userConfirmed = confirm('הסיומת לא קיימת, האם להוסיף אותה לגוגל שיטס?');
+            if (userConfirmed) {
+                await addRowToSheet(link, suffix);
+                alert('הנתונים הוזנו בהצלחה!');
+            }
         }
-        const data = await response.json();
-        const suffixes = data.values ? data.values.flat() : [];
-        if (suffixes.includes(suffix)) {
-          suffixStatusDiv.textContent = "Suffix is taken. Try another.";
-          createShortUrlButton.disabled = true;
-        } else {
-          suffixStatusDiv.textContent = "Suffix is available!";
-          createShortUrlButton.disabled = false;
-        }
-      } catch (error) {
-        console.error("Error checking suffix:", error);
-        suffixStatusDiv.textContent = "Error checking suffix.";
-      }
-    });
 
-    createShortUrlButton.addEventListener("click", async () => {
-      const originalUrl = originalUrlInput.value.trim();
-      const suffix = suffixInput.value.trim();
-      if (!originalUrl || !suffix) {
-        resultDiv.textContent = "Please provide both a URL and a suffix.";
-        return;
-      }
-      const appendUrl = `${baseUrl}${sheetId}/values/A1:B1:append?valueInputOption=RAW&key=${apiKey}`;
-      const body = {
-        values: [[originalUrl, suffix]],
-      };
-      try {
-        const response = await fetch(appendUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        });
-        if (!response.ok) {
-          const errorData = await response.json();
-          console.error("Error adding to Google Sheets:", errorData);
-          resultDiv.textContent = "Error creating short URL. Check console for details.";
-          return;
+        // פונקציה שבודקת אם הסיומת קיימת בעמודה B
+        async function checkSuffixInSheet(suffix) {
+            const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${sheetName}!B:B?key=YOUR_API_KEY`;
+            const response = await fetch(url);
+            const data = await response.json();
+            const values = data.values || [];
+
+            for (let row of values) {
+                if (row[0] && row[0].toLowerCase() === suffix.toLowerCase()) {
+                    return true; // אם הסיומת כבר קיימת
+                }
+            }
+
+            return false; // אם הסיומת לא קיימת
         }
-        const shortUrl = `https://yosefgli.github.io/url-shortener?${suffix}`;
-        resultDiv.innerHTML = `
-          <p>Short URL created successfully:</p>
-          <input type="text" value="${shortUrl}" readonly>
-          <button onclick="navigator.clipboard.writeText('${shortUrl}')">Copy</button>
-        `;
-      } catch (error) {
-        console.error("Unexpected error:", error);
-        resultDiv.textContent = "Unexpected error occurred.";
-      }
-    });
-  </script>
+
+        // פונקציה להוסיף שורה חדשה לגוגל שיטס
+        async function addRowToSheet(link, suffix) {
+            const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${sheetName}!A1:B1:append?valueInputOption=RAW&key=YOUR_API_KEY`;
+            const data = {
+                values: [[link, suffix]]
+            };
+
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data),
+            });
+
+            if (!response.ok) {
+                alert('שגיאה בהכנסת הנתונים לגוגל שיטס.');
+            }
+        }
+    </script>
 </body>
 </html>
