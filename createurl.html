@@ -4,79 +4,40 @@
     <meta charset="UTF-8">
     <title>מקצר כתובות URL</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-            text-align: center;
-        }
-        .input-container {
-            margin: 20px 0;
-        }
-        input {
-            padding: 10px;
-            width: 300px;
-            margin: 5px;
-        }
-        button {
-            padding: 10px 20px;
-            margin: 5px;
-            cursor: pointer;
-        }
-        .status {
-            margin: 10px 0;
-            font-size: 14px;
-        }
-        .loader {
-            display: none;
-            width: 20px;
-            height: 20px;
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid #3498db;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin: 10px auto;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        #result {
-            margin-top: 20px;
-            padding: 20px;
-            display: none;
-        }
+        /* ... (same styles as before) ... */
     </style>
 </head>
 <body>
-    <h1>מקצר כתובות URL</h1>
-    
-    <div class="input-container">
-        <input type="url" id="longUrl" placeholder="הכנס כתובת URL" required>
-    </div>
-    
-    <div class="input-container">
-        <input type="text" id="customSlug" placeholder="בחר סיומת מותאמת אישית">
-        <button onclick="checkSlug()">בדוק סיומת</button>
-    </div>
-    
-    <div class="status" id="slugStatus"></div>
-    <div class="loader" id="loader"></div>
-    
-    <button onclick="createShortUrl()" id="createButton" disabled>צור קישור</button>
-    
-    <div id="result">
-        <p>הקישור המקוצר שלך:</p>
-        <input type="text" id="shortUrl" readonly>
-        <button onclick="copyToClipboard()">העתק קישור</button>
-    </div>
+    <!-- ... (same HTML structure as before) ... -->
 
     <script>
-        // החלף את ה-URL הזה עם ה-URL של ה-Web App שקיבלת
         const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzj5eYTd-X8B_tzkJGYgvsdqhqX4d66Mbkgp16N5RuZTlLvc6IcLj-QgE4KUKDu45J5WQ/exec';
-        const BASE_URL = 'https://yosefgli.github.io/url-shortener/redirect?short=';
+        const BASE_URL = 'https://yosefgli.github.io/1/3?short=';
         
+        // פונקציה חדשה לתיקון URL
+        function formatURL(url) {
+            url = url.trim();
+            
+            // אם אין פרוטוקול, נוסיף https://
+            if (!url.match(/^https?:\/\//i)) {
+                // אם יש www. בהתחלה, נוסיף רק פרוטוקול
+                if (url.startsWith('www.')) {
+                    url = 'https://' + url;
+                } else {
+                    // אם אין www., נוסיף פרוטוקול וwww.
+                    url = 'https://www.' + url;
+                }
+            }
+            
+            // הסרת / בסוף אם קיים
+            return url.replace(/\/$/, '');
+        }
+
+        // שיפור ביצועים - שמירת תוצאות בדיקת סיומת במטמון
+        const slugCache = new Map();
+        let lastCheck = 0;
+        const CACHE_DURATION = 30000; // 30 שניות
+
         async function checkSlug() {
             const slug = document.getElementById('customSlug').value;
             if (!slug) {
@@ -88,9 +49,16 @@
             document.getElementById('slugStatus').textContent = 'בודק סיומת...';
             
             try {
-                const response = await fetch(`${SCRIPT_URL}?action=checkSlug`);
-                const data = await response.json();
-                const exists = data.slugs.includes(slug);
+                const now = Date.now();
+                // בדיקה האם צריך לרענן את המטמון
+                if (now - lastCheck > CACHE_DURATION) {
+                    const response = await fetch(`${SCRIPT_URL}?action=checkSlug`);
+                    const data = await response.json();
+                    data.slugs.forEach(s => slugCache.set(s, true));
+                    lastCheck = now;
+                }
+                
+                const exists = slugCache.has(slug);
                 
                 if (exists) {
                     document.getElementById('slugStatus').textContent = 'סיומת תפוסה';
@@ -108,19 +76,23 @@
         }
         
         async function createShortUrl() {
-            const longUrl = document.getElementById('longUrl').value;
+            const longUrlInput = document.getElementById('longUrl');
             const slug = document.getElementById('customSlug').value;
             
-            if (!longUrl || !slug) {
+            if (!longUrlInput.value || !slug) {
                 alert('נא למלא את כל השדות');
                 return;
             }
+            
+            // תיקון ה-URL לפני השמירה
+            const formattedUrl = formatURL(longUrlInput.value);
+            longUrlInput.value = formattedUrl; // עדכון הערך בשדה הקלט
             
             try {
                 const response = await fetch(SCRIPT_URL, {
                     method: 'POST',
                     body: JSON.stringify({
-                        longUrl: longUrl,
+                        longUrl: formattedUrl,
                         slug: slug
                     })
                 });
@@ -130,6 +102,8 @@
                     const shortUrl = BASE_URL + slug;
                     document.getElementById('shortUrl').value = shortUrl;
                     document.getElementById('result').style.display = 'block';
+                    // עדכון המטמון
+                    slugCache.set(slug, true);
                 } else {
                     alert('שגיאה ביצירת הקישור המקוצר');
                 }
