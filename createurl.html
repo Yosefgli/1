@@ -1,89 +1,159 @@
 <!DOCTYPE html>
-<html lang="he">
+<html dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>בדיקת סיומת והכנסת נתונים</title>
+    <title>מקצר כתובות URL</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            text-align: center;
+        }
+        .input-container {
+            margin: 20px 0;
+        }
+        input {
+            padding: 10px;
+            width: 300px;
+            margin: 5px;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+        }
+        .status {
+            margin: 10px 0;
+            font-size: 14px;
+        }
+        .loader {
+            display: none;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 10px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        #result {
+            margin-top: 20px;
+            padding: 20px;
+            display: none;
+        }
+    </style>
 </head>
 <body>
-    <h1>הכנסת קישור וסיומת</h1>
-
-    <!-- ריבועים -->
-    <div>
-        <input type="text" id="linkInput" placeholder="הכנס קישור" style="width: 300px; height: 40px; margin: 10px;">
+    <h1>מקצר כתובות URL</h1>
+    
+    <div class="input-container">
+        <input type="url" id="longUrl" placeholder="הכנס כתובת URL" required>
     </div>
     
-    <div>
-        <input type="text" id="suffixInput" placeholder="הכנס סיומת" style="width: 300px; height: 40px; margin: 10px;">
+    <div class="input-container">
+        <input type="text" id="customSlug" placeholder="בחר סיומת מותאמת אישית">
+        <button onclick="checkSlug()">בדוק סיומת</button>
+    </div>
+    
+    <div class="status" id="slugStatus"></div>
+    <div class="loader" id="loader"></div>
+    
+    <button onclick="createShortUrl()" id="createButton" disabled>צור קישור</button>
+    
+    <div id="result">
+        <p>הקישור המקוצר שלך:</p>
+        <input type="text" id="shortUrl" readonly>
+        <button onclick="copyToClipboard()">העתק קישור</button>
     </div>
 
-    <button onclick="checkAndSubmit()">בדוק והכנס</button>
-
+    <script src="https://apis.google.com/js/api.js"></script>
     <script>
-        const spreadsheetId = '1wFv3BQhWQqDp2AjbGwI-p6ldO3okR8xJChf8MwGLfN4';
-        const sheetName = '1';
-
-        // הפונקציה שתבצע את הבדיקה וההכנסה
-        async function checkAndSubmit() {
-            const link = document.getElementById('linkInput').value;
-            const suffix = document.getElementById('suffixInput').value;
-            
-            if (!link || !suffix) {
-                alert('נא למלא את כל השדות!');
+        const SHEET_ID = '1wFv3BQhWQqDp2AjbGwI-p6ldO3okR8xJChf8MwGLfN4';
+        const BASE_URL = 'https://yosefgli.github.io/url-shortener?';
+        
+        async function checkSlug() {
+            const slug = document.getElementById('customSlug').value;
+            if (!slug) {
+                alert('נא להזין סיומת');
                 return;
             }
-
-            // שלב 1: קבלת נתונים מהגוגל שיטס
-            const isSuffixPresent = await checkSuffixInSheet(suffix);
             
-            if (isSuffixPresent) {
-                alert('הסיומת כבר קיימת בגוגל שיטס!');
-                return;
-            }
-
-            // שלב 2: אישור והכנסת הנתונים
-            const userConfirmed = confirm('הסיומת לא קיימת, האם להוסיף אותה לגוגל שיטס?');
-            if (userConfirmed) {
-                await addRowToSheet(link, suffix);
-                alert('הנתונים הוזנו בהצלחה!');
-            }
-        }
-
-        // פונקציה שבודקת אם הסיומת קיימת בעמודה B
-        async function checkSuffixInSheet(suffix) {
-            const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${sheetName}!B:B?key=YOUR_API_KEY`;
-            const response = await fetch(url);
-            const data = await response.json();
-            const values = data.values || [];
-
-            for (let row of values) {
-                if (row[0] && row[0].toLowerCase() === suffix.toLowerCase()) {
-                    return true; // אם הסיומת כבר קיימת
+            document.getElementById('loader').style.display = 'block';
+            document.getElementById('slugStatus').textContent = 'בודק סיומת...';
+            
+            try {
+                // Call Google Sheets API to check if slug exists
+                const response = await gapi.client.sheets.spreadsheets.values.get({
+                    spreadsheetId: SHEET_ID,
+                    range: 'Sheet1!B:B'
+                });
+                
+                const exists = response.result.values?.some(row => row[0] === slug);
+                
+                if (exists) {
+                    document.getElementById('slugStatus').textContent = 'סיומת תפוסה';
+                    document.getElementById('createButton').disabled = true;
+                } else {
+                    document.getElementById('slugStatus').textContent = 'סיומת תקינה';
+                    document.getElementById('createButton').disabled = false;
                 }
+            } catch (error) {
+                document.getElementById('slugStatus').textContent = 'שגיאה בבדיקת הסיומת';
+                console.error('Error:', error);
             }
-
-            return false; // אם הסיומת לא קיימת
+            
+            document.getElementById('loader').style.display = 'none';
         }
-
-        // פונקציה להוסיף שורה חדשה לגוגל שיטס
-        async function addRowToSheet(link, suffix) {
-            const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${sheetName}!A1:B1:append?valueInputOption=RAW&key=YOUR_API_KEY`;
-            const data = {
-                values: [[link, suffix]]
-            };
-
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(data),
+        
+        async function createShortUrl() {
+            const longUrl = document.getElementById('longUrl').value;
+            const slug = document.getElementById('customSlug').value;
+            
+            if (!longUrl || !slug) {
+                alert('נא למלא את כל השדות');
+                return;
+            }
+            
+            try {
+                // Add new row to Google Sheet
+                await gapi.client.sheets.spreadsheets.values.append({
+                    spreadsheetId: SHEET_ID,
+                    range: 'Sheet1!A:B',
+                    valueInputOption: 'RAW',
+                    resource: {
+                        values: [[longUrl, slug]]
+                    }
+                });
+                
+                const shortUrl = BASE_URL + slug;
+                document.getElementById('shortUrl').value = shortUrl;
+                document.getElementById('result').style.display = 'block';
+            } catch (error) {
+                alert('שגיאה ביצירת הקישור המקוצר');
+                console.error('Error:', error);
+            }
+        }
+        
+        function copyToClipboard() {
+            const shortUrl = document.getElementById('shortUrl');
+            shortUrl.select();
+            document.execCommand('copy');
+            alert('הקישור הועתק ללוח');
+        }
+        
+        // Initialize Google Sheets API
+        gapi.load('client', async () => {
+            await gapi.client.init({
+                apiKey: 'YOUR_API_KEY',
+                discoveryDocs: ['https://sheets.googleapis.com/$discovery/rest?version=v4']
             });
-
-            if (!response.ok) {
-                alert('שגיאה בהכנסת הנתונים לגוגל שיטס.');
-            }
-        }
+        });
     </script>
 </body>
 </html>
