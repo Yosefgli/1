@@ -4,7 +4,24 @@
     <meta charset="UTF-8">
     <title>מעביר...</title>
     <style>
-        /* ... (same styles as before) ... */
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding: 20px;
+        }
+        .loader {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body>
@@ -14,7 +31,7 @@
     <script>
         const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzj5eYTd-X8B_tzkJGYgvsdqhqX4d66Mbkgp16N5RuZTlLvc6IcLj-QgE4KUKDu45J5WQ/exec';
         
-        // שיפור ביצועים - הוספת מטמון לדפדפן
+        // פונקציות מטמון
         function getFromCache(slug) {
             const cached = localStorage.getItem('redirect_' + slug);
             if (cached) {
